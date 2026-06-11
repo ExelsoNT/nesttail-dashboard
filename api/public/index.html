@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NestTail — Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;color:#1a1a18;min-height:100vh}
+.topbar{background:#fff;border-bottom:0.5px solid #e0dfd7;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px}
+.logo-badge{background:#1D9E75;color:#fff;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;letter-spacing:.04em}
+.conn-badge{display:flex;align-items:center;gap:6px;font-size:12px;color:#3B6D11;background:#EAF3DE;padding:4px 12px;border-radius:20px}
+.conn-dot{width:6px;height:6px;border-radius:50%;background:#1D9E75}
+.conn-badge.error{color:#A32D2D;background:#FCEBEB}
+.conn-badge.error .conn-dot{background:#E24B4A}
+.conn-badge.loading{color:#633806;background:#FAEEDA}
+.conn-badge.loading .conn-dot{background:#BA7517}
+.main{max-width:1100px;margin:0 auto;padding:24px}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px}
+.metric{background:#fff;border-radius:10px;padding:16px;border:0.5px solid #e0dfd7}
+.metric-label{font-size:11px;color:#888780;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+.metric-value{font-size:24px;font-weight:600;color:#1a1a18}
+.metric-sub{font-size:11px;color:#3B6D11;margin-top:3px}
+.tabs{display:flex;gap:2px;background:#e0dfd7;border-radius:10px;padding:3px;margin-bottom:20px;width:fit-content}
+.tab{padding:7px 18px;border-radius:8px;font-size:13px;cursor:pointer;border:none;background:transparent;color:#5F5E5A;transition:all .15s;font-weight:500}
+.tab.active{background:#fff;color:#1a1a18}
+.section{display:none}
+.section.active{display:block}
+.card{background:#fff;border:0.5px solid #e0dfd7;border-radius:12px;padding:20px;margin-bottom:16px}
+.card-title{font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.import-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.field label{font-size:11px;color:#888780;margin-bottom:4px;display:block;text-transform:uppercase;letter-spacing:.04em}
+.field input,.field select,.field textarea{width:100%;padding:9px 12px;border:0.5px solid #d3d1c7;border-radius:8px;font-size:13px;color:#1a1a18;background:#fff;font-family:inherit}
+.field textarea{resize:vertical;min-height:80px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:0.5px solid #d3d1c7;background:#fff;color:#1a1a18;transition:all .12s}
+.btn:hover{background:#f5f5f0}
+.btn.primary{background:#1D9E75;color:#fff;border-color:#1D9E75}
+.btn.primary:hover{background:#0F6E56}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.product-card{background:#f5f5f0;border-radius:10px;padding:14px;border:0.5px solid #e0dfd7}
+.product-name{font-size:13px;font-weight:600;margin-bottom:4px;line-height:1.4}
+.product-status{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;margin-bottom:8px}
+.status-active{background:#EAF3DE;color:#3B6D11}
+.status-draft{background:#FAEEDA;color:#633806}
+.product-price{font-size:12px;color:#888780}
+.ai-result{background:#E1F5EE;border-radius:8px;padding:14px;margin-top:12px;font-size:13px;color:#085041;line-height:1.7;white-space:pre-wrap;display:none}
+.ai-label{font-size:10px;font-weight:700;color:#1D9E75;letter-spacing:.06em;margin-bottom:6px}
+.loading-spin{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:24px;right:24px;background:#1a1a18;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;z-index:999;display:none;max-width:320px}
+.toast.show{display:block}
+.toast.success{background:#1D9E75}
+.toast.error{background:#E24B4A}
+.alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:12px;display:flex;align-items:flex-start;gap:10px}
+.alert-warn{background:#FAEEDA;color:#633806}
+.row-actions{display:flex;gap:8px;margin-top:10px}
+.empty{text-align:center;padding:40px;color:#888780;font-size:14px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">🐾 NestTail <span class="logo-badge">IA</span></div>
+  <div class="conn-badge loading" id="connBadge">
+    <div class="conn-dot"></div>
+    <span id="connText">Conectando...</span>
+  </div>
+</div>
+
+<div class="main">
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-label">Productos en tienda</div>
+      <div class="metric-value" id="metricProducts">—</div>
+      <div class="metric-sub" id="metricSub">Cargando...</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Publicados</div>
+      <div class="metric-value" id="metricActive">—</div>
+      <div class="metric-sub" style="color:#888780">activos</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Borradores</div>
+      <div class="metric-value" id="metricDraft">—</div>
+      <div class="metric-sub" style="color:#888780">sin publicar</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Tienda</div>
+      <div class="metric-value" style="font-size:13px;padding-top:4px">nesttail-2</div>
+      <div class="metric-sub">myshopify.com</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('importar')">Importar producto</button>
+    <button class="tab" onclick="switchTab('productos')">Mis productos</button>
+    <button class="tab" onclick="switchTab('ia')">Generador IA</button>
+  </div>
+
+  <div class="section active" id="tab-importar">
+    <div class="card">
+      <div class="card-title">📦 Importar producto a NestTail</div>
+      <div class="alert alert-warn">
+        La IA genera el contenido del producto. Tú revisas y publicas con un clic a Shopify.
+      </div>
+      <div class="import-form">
+        <div class="field" style="grid-column:1/-1">
+          <label>URL del producto (AliExpress, Amazon, Temu, CJ...)</label>
+          <input type="text" id="importUrl" placeholder="https://www.aliexpress.com/item/..." />
+        </div>
+        <div class="field">
+          <label>Nombre del producto</label>
+          <input type="text" id="importName" placeholder="Ej: Cama ortopédica para perros" />
+        </div>
+        <div class="field">
+          <label>Precio de costo (USD)</label>
+          <input type="number" id="importCost" placeholder="12.00" step="0.01" />
+        </div>
+        <div class="field">
+          <label>Margen deseado (%)</label>
+          <input type="number" id="importMargin" value="65" min="1" max="99" />
+        </div>
+        <div class="field">
+          <label>Categoría</label>
+          <select id="importCategory">
+            <option>Mascotas</option>
+            <option>Hogar</option>
+            <option>Fitness</option>
+            <option>Belleza</option>
+            <option>Juguetes</option>
+          </select>
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>Características principales (separadas por coma)</label>
+          <input type="text" id="importFeatures" placeholder="Ej: lavable, ortopédica, talla L, impermeable" />
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn primary" onclick="generateAndImport()" id="btnImport">✨ Generar con IA y revisar</button>
+        <button class="btn" onclick="clearImport()">Limpiar</button>
+      </div>
+
+      <div class="ai-result" id="aiResult">
+        <div class="ai-label">CONTENIDO GENERADO POR IA — REVISA ANTES DE PUBLICAR</div>
+        <div id="aiText"></div>
+        <div style="margin-top:14px;border-top:0.5px solid #9FE1CB;padding-top:14px">
+          <div style="font-size:11px;color:#1D9E75;font-weight:700;margin-bottom:8px">PRECIO CALCULADO</div>
+          <div style="font-size:18px;font-weight:700;color:#085041" id="calcPrice"></div>
+          <div style="font-size:11px;color:#0F6E56" id="calcMarginShow"></div>
+        </div>
+        <div class="row-actions">
+          <button class="btn primary" onclick="publishToShopify()" id="btnPublish">🚀 Publicar en Shopify</button>
+          <button class="btn" onclick="publishDraft()" id="btnDraft">Guardar como borrador</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" id="tab-productos">
+    <div class="card">
+      <div class="card-title">🛍️ Productos en tu tienda</div>
+      <div style="margin-bottom:14px;display:flex;gap:10px">
+        <button class="btn primary" onclick="loadProducts()">🔄 Actualizar</button>
+      </div>
+      <div id="productGrid" class="product-grid">
+        <div class="empty">Cargando productos de Shopify...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" id="tab-ia">
+    <div class="card">
+      <div class="card-title">✨ Generador de contenido IA</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div class="field">
+          <label>Producto</label>
+          <input type="text" id="iaProduct" placeholder="Nombre del producto" />
+        </div>
+        <div class="field">
+          <label>Tipo de contenido</label>
+          <select id="iaType">
+            <option value="desc">Descripción para Shopify</option>
+            <option value="tiktok">Script TikTok (30s)</option>
+            <option value="seo">Título SEO</option>
+            <option value="bullet">Bullets de beneficios</option>
+          </select>
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>Tono</label>
+          <select id="iaTone">
+            <option>Persuasivo y emocional</option>
+            <option>Informativo y técnico</option>
+            <option>Divertido y viral</option>
+            <option>Minimalista</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn primary" onclick="generateContent()" id="btnIA">✨ Generar</button>
+      <div class="ai-result" id="iaResult" style="margin-top:14px">
+        <div class="ai-label">CONTENIDO GENERADO</div>
+        <div id="iaText2"></div>
+        <div class="row-actions" style="margin-top:10px">
+          <button class="btn" onclick="copyIA()">📋 Copiar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '/api/shopify';
+let generatedProduct = null;
+
+async function checkConnection() {
+  try {
+    const r = await fetch(API + '?action=products');
+    const d = await r.json();
+    if (d.products !== undefined) {
+      const active = d.products.filter(p => p.status === 'active').length;
+      const draft = d.products.filter(p => p.status === 'draft').length;
+      document.getElementById('connBadge').className = 'conn-badge';
+      document.getElementById('connText').textContent = 'Conectado · nesttail-2';
+      document.getElementById('metricProducts').textContent = d.products.length;
+      document.getElementById('metricActive').textContent = active;
+      document.getElementById('metricDraft').textContent = draft;
+      document.getElementById('metricSub').textContent = 'en Shopify';
+      renderProducts(d.products);
+    } else {
+      throw new Error('Token inválido');
+    }
+  } catch(e) {
+    document.getElementById('connBadge').className = 'conn-badge error';
+    document.getElementById('connText').textContent = 'Token no configurado';
+    document.getElementById('metricSub').textContent = 'Agrega el token en Vercel';
+  }
+}
+
+function renderProducts(products) {
+  const grid = document.getElementById('productGrid');
+  if (!products.length) { grid.innerHTML = '<div class="empty">No hay productos en tu tienda aún.</div>'; return; }
+  grid.innerHTML = products.map(p => `
+    <div class="product-card">
+      <div class="product-name">${p.title}</div>
+      <span class="product-status ${p.status === 'active' ? 'status-active' : 'status-draft'}">${p.status === 'active' ? '✓ Publicado' : '⏸ Borrador'}</span>
+      <div class="product-price">$${parseFloat(p.variants?.[0]?.price || 0).toFixed(2)}</div>
+    </div>
+  `).join('');
+}
+
+async function loadProducts() {
+  document.getElementById('productGrid').innerHTML = '<div class="empty">Cargando...</div>';
+  const r = await fetch(API + '?action=products');
+  const d = await r.json();
+  if (d.products) renderProducts(d.products);
+}
+
+async function generateAndImport() {
+  const name = document.getElementById('importName').value.trim();
+  const cost = parseFloat(document.getElementById('importCost').value) || 0;
+  const margin = parseInt(document.getElementById('importMargin').value) || 65;
+  const category = document.getElementById('importCategory').value;
+  const features = document.getElementById('importFeatures').value.trim();
+  if (!name) { showToast('Ingresa el nombre del producto', 'error'); return; }
+
+  const btn = document.getElementById('btnImport');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spin"></span> Generando con IA...';
+
+  const price = cost > 0 ? (cost / (1 - margin/100)).toFixed(2) : null;
+  const prompt = `Eres experto en dropshipping. Genera una descripción de producto para Shopify en español para: "${name}".
+Categoría: ${category}. ${features ? 'Características: ' + features + '.' : ''}
+La descripción debe ser persuasiva, mencionar los beneficios principales, y tener entre 80-120 palabras.
+Responde SOLO con la descripción, sin títulos ni explicaciones adicionales.`;
+
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] })
+    });
+    const d = await r.json();
+    const desc = d.content?.map(b => b.text || '').join('') || '';
+
+    generatedProduct = { name, desc, price, cost, margin, category };
+
+    document.getElementById('aiText').textContent = desc;
+    if (price) {
+      document.getElementById('calcPrice').textContent = '$' + price + ' USD';
+      document.getElementById('calcMarginShow').textContent = `Costo: $${cost} → Precio: $${price} (${margin}% margen)`;
+    }
+    document.getElementById('aiResult').style.display = 'block';
+    showToast('¡Contenido generado! Revisa y publica.', 'success');
+  } catch(e) {
+    showToast('Error al generar. Intenta de nuevo.', 'error');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '✨ Generar con IA y revisar';
+}
+
+async function publishToShopify(asDraft = false) {
+  if (!generatedProduct) return;
+  const btn = document.getElementById(asDraft ? 'btnDraft' : 'btnPublish');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spin"></span> Publicando...';
+
+  const payload = {
+    product: {
+      title: generatedProduct.name,
+      body_html: `<p>${generatedProduct.desc}</p>`,
+      vendor: 'NestTail',
+      product_type: generatedProduct.category,
+      status: asDraft ? 'draft' : 'active',
+      variants: generatedProduct.price ? [{ price: generatedProduct.price, requires_shipping: true }] : []
+    }
+  };
+
+  try {
+    const r = await fetch(API + '?action=create_product', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const d = await r.json();
+    if (d.product) {
+      showToast(asDraft ? '✓ Guardado como borrador en Shopify' : '🚀 ¡Publicado en tu tienda!', 'success');
+      setTimeout(checkConnection, 1500);
+    } else {
+      showToast('Error al publicar: ' + JSON.stringify(d.errors || d), 'error');
+    }
+  } catch(e) {
+    showToast('Error de conexión', 'error');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = asDraft ? 'Guardar como borrador' : '🚀 Publicar en Shopify';
+}
+
+function publishDraft() { publishToShopify(true); }
+
+function clearImport() {
+  ['importUrl','importName','importCost','importFeatures'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('importMargin').value = '65';
+  document.getElementById('aiResult').style.display = 'none';
+  generatedProduct = null;
+}
+
+async function generateContent() {
+  const product = document.getElementById('iaProduct').value.trim();
+  const type = document.getElementById('iaType').value;
+  const tone = document.getElementById('iaTone').value;
+  if (!product) { showToast('Ingresa el nombre del producto', 'error'); return; }
+
+  const btn = document.getElementById('btnIA');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spin"></span> Generando...';
+
+  const types = { desc: 'descripción para Shopify (80-120 palabras)', tiktok: 'script de TikTok de 30 segundos con gancho, desarrollo y CTA', seo: 'título SEO optimizado (máximo 70 caracteres)', bullet: '5 bullets de beneficios para página de producto' };
+  const prompt = `Genera ${types[type]} para el producto: "${product}". Tono: ${tone}. En español. Responde solo con el contenido, sin explicaciones.`;
+
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] })
+    });
+    const d = await r.json();
+    const text = d.content?.map(b => b.text || '').join('') || '';
+    document.getElementById('iaText2').textContent = text;
+    document.getElementById('iaResult').style.display = 'block';
+  } catch(e) {
+    showToast('Error al generar', 'error');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '✨ Generar';
+}
+
+function copyIA() {
+  navigator.clipboard.writeText(document.getElementById('iaText2').textContent).then(() => showToast('¡Copiado!', 'success'));
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['importar','productos','ia'][i] === id));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  if (id === 'productos') loadProducts();
+}
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+checkConnection();
+</script>
+</body>
+</html>
