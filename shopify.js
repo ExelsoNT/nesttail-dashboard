@@ -1,6 +1,6 @@
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -9,10 +9,10 @@ export default async function handler(req, res) {
   const SHOP_URL = 'https://nesttail-2.myshopify.com/admin/api/2025-04';
 
   if (!SHOPIFY_TOKEN) {
-    return res.status(500).json({ error: 'Token no configurado en variables de entorno' });
+    return res.status(200).json({ error: 'TOKEN_MISSING' });
   }
 
-  const { action } = req.query;
+  const action = req.query.action;
 
   try {
     if (action === 'products') {
@@ -36,17 +36,9 @@ export default async function handler(req, res) {
       return res.status(200).json(data);
     }
 
-    if (action === 'inventory') {
-      const r = await fetch(`${SHOP_URL}/inventory_levels.json`, {
-        headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN }
-      });
-      const data = await r.json();
-      return res.status(200).json(data);
-    }
-
-    return res.status(400).json({ error: 'Acción no reconocida' });
+    return res.status(200).json({ error: 'UNKNOWN_ACTION' });
 
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(200).json({ error: err.message });
   }
 }
