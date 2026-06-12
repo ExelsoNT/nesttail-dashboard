@@ -1,5 +1,5 @@
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const { action } = req.query;
   const TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
   const SHOP = 'https://nesttail-2.myshopify.com/admin/api/2025-04';
